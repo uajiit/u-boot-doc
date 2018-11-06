@@ -39,7 +39,7 @@
 $ rpm -q uucp
    On [601]UBUNTU systems you can check if the UUCP package is installed
    as follows:
-   $dpkg --list | grep -i uucp
+$dpkg --list | grep -i uucp
 
    If necessary, install the UUCP package from your distribution media.
 
