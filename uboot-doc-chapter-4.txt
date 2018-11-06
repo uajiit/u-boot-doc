@@ -1,0 +1,280 @@
+ * [589]4. System Setup
+          + [590]4.1. Serial Console Access
+          + [591]4.2. Configuring the "cu" command
+          + [592]4.3. Configuring the "kermit" command
+          + [593]4.4. Using the "minicom" program
+          + [594]4.5. Permission Denied Problems
+          + [595]4.6. Configuration of a [596]TFTP Server
+          + [597]4.7. Configuration of a [598]BOOTP / [599]DHCP Server
+          + [600]4.8. Configuring a NFS Server
+
+                                4. System Setup
+
+   Some tools are needed to install and configure U-Boot and Linux on the
+   target system. Also, especially during development, you will want to be
+   able to interact with the target system. This section describes how to
+   configure your host system for this purpose.
+
+4.1. Serial Console Access
+
+   To use U-Boot and Linux as a development system and to make full use of
+   all their capabilities you will need access to a serial console port on
+   your target system. Later, U-Boot and Linux can be configured to allow
+   for automatic execution without any user interaction.
+
+   There are several ways to access the serial console port on your target
+   system, such as using a terminal server, but the most common way is to
+   attach it to a serial port on your host. Additionally, you will need a
+   terminal emulation program on your host system, such as cu or kermit.
+
+4.2. Configuring the "cu" command
+
+   The cu command is part of the UUCP package and can be used to act as a
+   dial-in terminal. It can also do simple file transfers, which can be
+   used in U-Boot for image download.
+
+   On [601]RedHat systems you can check if the UUCP package is installed
+   as follows:
+
+$ rpm -q uucp
+
+   If necessary, install the UUCP package from your distribution media.
+
+   To configure cu for use with U-Boot and Linux please make sure that the
+   following entries are present in the UUCP configuration files;
+   depending on your target configuration the serial port and/or the
+   console baudrate may be different from the values used in this example:
+   (/dev/ttyS0, 115200 bps, 8N1):
+
+     * /etc/uucp/sys:
+
+#
+# /dev/ttyS0 at 115200 bps:
+#
+system          S0@115200
+port            serial0_115200
+time            any
+
+     * /etc/uucp/port:
+
+#
+# /dev/ttyS0 at 115200 bps:
+#
+port            serial0_115200
+type            direct
+device          /dev/ttyS0
+speed           115200
+hardflow        false
+
+   You can then connect to the serial line using the command
+
+$ cu S0@115200
+Connected.
+
+   To disconnect, type the escape character '~' followed by '.' at the
+   beginning of a line.
+
+   See also: cu(1), info uucp.
+
+4.3. Configuring the "kermit" command
+
+   The name kermit stands for a whole family of communications software
+   for serial and network connections. The fact that it is available for
+   most computers and operating systems makes it especially well suited
+   for our purposes.
+
+   kermit executes the commands in its initialization file, .kermrc, in
+   your home directory before it executes any other commands, so this can
+   be easily used to customize its behaviour using appropriate
+   initialization commands. The following settings are recommended for use
+   with U-Boot and Linux:
+
+     * ~/.kermrc:
+
+set line /dev/ttyS0
+set speed 115200
+set carrier-watch off
+set handshake none
+set flow-control none
+robust
+set file type bin
+set file name lit
+set rec pack 1000
+set send pack 1000
+set window 5
+
+   This example assumes that you use the first serial port of your host
+   system (/dev/ttyS0) at a baudrate of 115200 to connect to the target's
+   serial console port.
+
+   You can then connect to the serial line:
+
+$ kermit -c
+Connecting to /dev/ttyS0, speed 115200.
+The escape character is Ctrl-\ (ASCII 28, FS)
+Type the escape character followed by C to get back,
+or followed by ? to see other options.
+----------------------------------------------------
+
+   TIP Due to licensing conditions you will often find two kermit packages
+   in your GNU/Linux distribution. In this case you will want to install
+   the ckermit package. The gkermit package is only a command line tool
+   implementing the kermit transfer protocol.
+
+   TIP If you cannot find kermit on the distribution media for your Linux
+   host system, you can download it from the kermit project home page:
+   [602]http://www.columbia.edu/kermit/
+
+4.4. Using the "minicom" program
+
+   minicom is another popular serial communication program. Unfortunately,
+   many users have reported problems using it with U-Boot and Linux,
+   especially when trying to use it for serial image download. It's use is
+   therefore discouraged.
+
+4.5. Permission Denied Problems
+
+   The terminal emulation program must have write access to the serial
+   port and to any locking files that are used to prevent concurrent
+   access from other applications. Depending on the used Linux
+   distribution you may have to make sure that:
+
+     * the serial device belongs to the same group as the cu command, and
+       that the permissions of cu have the setgid bit set
+
+     * the kermit belongs to the same group as cu and has the setgid bit
+       set
+
+     * the /var/lock directory belongs to the same group as the cu
+       command, and that the write permissions for the group are set
+
+4.6. Configuration of a [603]TFTP Server
+
+   The fastest way to use U-Boot to load a Linux kernel or an application
+   image is file transfer over Ethernet. For this purpose, U-Boot
+   implements the TFTP protocol (see the tftpboot command in U-Boot).
+
+   To enable [604]TFTP support on your host system you must make sure that
+   the [605]TFTP daemon program /usr/sbin/in.tftpd is installed. On
+   [606]RedHat systems you can verify this by running:
+
+$ rpm -q tftp-server
+
+   If necessary, install the [607]TFTP daemon program from your
+   distribution media.
+
+   Most Linux distributions disable the [608]TFTP service by default. To
+   enable it for example on [609]RedHat systems, edit the file
+   /etc/xinetd.d/tftp and remove the line
+disable = yes
+
+   or change it into a comment line by putting a hash character in front
+   of it:
+
+# default: off
+# description: The tftp server serves files using the trivial file transfer
+#       protocol.  The tftp protocol is often used to boot diskless
+#       workstations, download configuration files to network-aware printers,
+#       and to start the installation process for some operating systems.
+service tftp
+{
+        socket_type             = dgram
+        protocol                = udp
+        wait                    = yes
+        user                    = root
+        server                  = /usr/sbin/in.tftpd
+        server_args             = -s /tftpboot
+#       disable                 = yes
+        per_source              = 11
+        cps                     = 100 2
+}
+
+   Also, make sure that the /tftpboot directory exists and is
+   world-readable (permissions at least "dr-xr-xr-x").
+
+   On newer Linux distros that use systemd, you would need to start the
+   [610]TFTP service, enable it, then tweak your firewall to allow
+   [611]TFTP traffic, something like this:
+
+$ sudo systemctl start tftp
+$ sudo systemctl enable tftp
+
+$ sudo firewall-cmd --permanent --add-service tftp
+$ sudo firewall-cmd --reload
+
+4.7. Configuration of a [612]BOOTP / [613]DHCP Server
+
+   BOOTP resp. DHCP can be used to automatically pass configuration
+   information to the target. The only thing the target must "know" about
+   itself is its own Ethernet hardware ([614]MAC) address. The following
+   command can be used to check if [615]DHCP support is available on your
+   host system:
+
+$ rpm -q dhcp
+
+   If necessary, install the [616]DHCP package from your distribution
+   media.
+
+   Then you have to create the [617]DHCP configuration file
+   /etc/dhcpd.conf that matches your network setup. The following example
+   gives you an idea what to do:
+
+subnet 192.168.0.0 netmask 255.255.0.0 {
+        option routers          192.168.1.1;
+        option subnet-mask      255.255.0.0;
+
+        option domain-name      "local.net";
+        option domain-name-servers ns.local.net;
+
+        host trgt {     hardware ethernet       00:30:BF:01:02:D0;
+                        fixed-address           192.168.100.6;
+                        option root-path        "/opt/eldk-4.2/ppc_4xx";
+                        option host-name        "canyonlands";
+                        next-server             192.168.1.1;
+                        filename                "/tftpboot/canyonlands/uImage";
+        }
+}
+
+   With this configuration, the [618]DHCP server will reply to a request
+   from the target with the ethernet address 00:30:BF:01:02:D0 with the
+   following information:
+
+     * The target is located in the subnet 192.168.0.0 which uses the
+       netmask 255.255.0.0.
+
+     * The target has the hostname canyonlands and the IP address
+       192.168.100.6.
+
+     * The host with the IP address 192.168.1.1 will provide the boot
+       image for the target and provide NFS server function in cases when
+       the target mounts it's root filesystem over NFS.
+       TIP The host listed with the next-server option can be different
+       from the host that is running the [619]DHCP server.
+
+     * The host provides the file /tftpboot/canyonlands/uImage as boot
+       image for the target.
+
+     * The target can mount the directory /opt/eldk-4.2/ppc_4xx on the NFS
+       server as root filesystem.
+
+4.8. Configuring a NFS Server
+
+   For a development environment it is very convenient when the host and
+   the target can share the same files over the network. The easiest way
+   for such a setup is when the host provides NFS server functionality and
+   exports a directory that can be mounted from the target as the root
+   filesystem.
+
+   Assuming NFS server functionality is already provided by your host, the
+   only configuration that needs to be added is an entry for your target
+   root directory to your /etc/exports file, for instance like this:
+
+/opt/eldk-4.2/ppc_4xx       192.168.0.0/255.255.0.0(rw,no_root_squash,sync)
+
+   This line exports the /opt/eldk-4.2/ppc_4xx directory with read and
+   write permissions to all hosts on the 192.168.0.0 subnet.
+
+   After modifying the /etc/exports file you must make sure the NFS system
+   is notified about the change, for instance by issuing the command:
+
+# /sbin/service nfs restart
