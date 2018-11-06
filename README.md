@@ -1,1 +1,1 @@
-# u-boot-doc
+# uboot-doc
